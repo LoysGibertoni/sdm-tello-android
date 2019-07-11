@@ -6,34 +6,44 @@
         android:layout_height="match_parent" xmlns:app="http://schemas.android.com/apk/res-auto"
         tools:context=".MainActivity">
 
-    <Button
-            android:id="@+id/btConnect"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:text="Connect"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/btTakeOff"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+    <br.edu.ifsp.sdm.tello.VirtualStickView
+        android:id="@+id/vsView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <Button
-            android:id="@+id/btTakeOff"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:text="Take off"
-            app:layout_constraintTop_toBottomOf="@id/btConnect"
-            app:layout_constraintBottom_toTopOf="@id/btLand"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+        android:id="@+id/btConnect"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Connect"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/btTakeOff"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <Button
-            android:id="@+id/btLand"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:text="Land"
-            app:layout_constraintTop_toBottomOf="@id/btTakeOff"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+        android:id="@+id/btTakeOff"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Take off"
+        app:layout_constraintTop_toBottomOf="@id/btConnect"
+        app:layout_constraintBottom_toTopOf="@id/btLand"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <Button
+        android:id="@+id/btLand"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="130dp"
+        android:text="Land"
+        app:layout_constraintTop_toBottomOf="@id/btTakeOff"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

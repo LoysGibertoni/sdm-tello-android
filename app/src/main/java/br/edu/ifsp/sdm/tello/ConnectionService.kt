@@ -4,6 +4,8 @@ import android.app.Service
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
+import android.util.Log
+import io.reactivex.Completable
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.Disposable
@@ -63,12 +65,17 @@ class ConnectionService : Service() {
         if (mDisposable == null) {
             this.startServer()
         }
-        try {
-            mSocket?.send(DatagramPacket(message.toByteArray(), message.length, Constants.HOST, Constants.PORT))
-        } catch (e: Exception) {
-            mDisposable?.takeIf { !it.isDisposed }?.dispose()
-            mDisposable = null
-        }
+        val disposable = Completable.fromAction {
+                mSocket?.send(DatagramPacket(message.toByteArray(), message.length, Constants.HOST, Constants.PORT))
+            }.subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+                Log.d("ConnectionService", "Sent $message")
+            }, {
+                mOnErrorListener?.invoke(it)
+                mDisposable?.takeIf { !it.isDisposed }?.dispose()
+                mDisposable = null
+            })
     }
 
     inner class Tello : Binder() {
@@ -83,6 +90,38 @@ class ConnectionService : Service() {
 
         fun land() {
             sendMessage("land")
+        }
+
+        fun forward(centimeters: Int) {
+            sendMessage("forward $centimeters")
+        }
+
+        fun back(centimeters: Int) {
+            sendMessage("back $centimeters")
+        }
+
+        fun left(centimeters: Int) {
+            sendMessage("left $centimeters")
+        }
+
+        fun right(centimeters: Int) {
+            sendMessage("right $centimeters")
+        }
+
+        fun up(centimeters: Int) {
+            sendMessage("up $centimeters")
+        }
+
+        fun down(centimeters: Int) {
+            sendMessage("down $centimeters")
+        }
+
+        fun rotateLeft(degrees: Int) {
+            sendMessage("ccw $degrees")
+        }
+
+        fun rotateRight(degrees: Int) {
+            sendMessage("cw $degrees")
         }
 
         fun setOnMessageReceiveListener(listener: ((String) -> Unit)?) {
