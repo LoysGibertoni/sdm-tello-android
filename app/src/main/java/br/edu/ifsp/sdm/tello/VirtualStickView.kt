@@ -6,12 +6,15 @@ import android.view.LayoutInflater
 import android.widget.LinearLayout
 import kotlinx.android.synthetic.main.view_virtual_stick.view.*
 import java.util.*
+import kotlin.math.abs
+import kotlin.math.sign
 
 class VirtualStickView : LinearLayout {
 
     companion object {
-        const val MAX_MOVEMENT  = 500
+        const val MAX_MOVEMENT = 500
         const val MAX_ROTATION = 3600
+        const val DEAD_ZONE = 0.2F
     }
 
     private var sendVirtualStickDataTimer: Timer? = null
@@ -52,20 +55,26 @@ class VirtualStickView : LinearLayout {
         super.onDetachedFromWindow()
     }
 
+    private fun calculateValue(axis: Float, max: Int): Int {
+        val calculatedAxis = abs(axis).takeUnless { it < DEAD_ZONE }?.minus(DEAD_ZONE)?.div(1 - DEAD_ZONE) ?: 0F
+        return (calculatedAxis * sign(axis) * max).toInt()
+    }
+
     private fun setUpListeners() {
+
         joystickLeft.setJoystickListener(object : OnScreenJoystickListener {
 
             override fun onTouch(joystick: OnScreenJoystick, pX: Float, pY: Float) {
-                pitch = if (Math.abs(pY) < 0.02) 0 else (MAX_MOVEMENT * pY).toInt()
-                roll = if (Math.abs(pX) < 0.02) 0 else (MAX_MOVEMENT * pX).toInt()
+                pitch = calculateValue(pY, MAX_MOVEMENT)
+                roll = calculateValue(pX, MAX_MOVEMENT)
             }
         })
 
         joystickRight.setJoystickListener(object : OnScreenJoystickListener {
 
             override fun onTouch(joystick: OnScreenJoystick, pX: Float, pY: Float) {
-                throttle = if (Math.abs(pY) < 0.02) 0 else (MAX_MOVEMENT * pY).toInt()
-                yaw = if (Math.abs(pX) < 0.02) 0 else (MAX_ROTATION * pX).toInt()
+                throttle = calculateValue(pY, MAX_MOVEMENT)
+                yaw = calculateValue(pX, MAX_ROTATION)
             }
         })
     }
