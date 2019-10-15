@@ -12,8 +12,10 @@ import kotlin.math.sign
 class VirtualStickView : LinearLayout {
 
     companion object {
-        const val MAX_MOVEMENT = 500
-        const val MAX_ROTATION = 3600
+        const val MIN_MOVEMENT = 20
+        const val MAX_MOVEMENT = 50
+        const val MIN_ROTATION = 1
+        const val MAX_ROTATION = 36
         const val DEAD_ZONE = 0.2F
     }
 
@@ -55,9 +57,15 @@ class VirtualStickView : LinearLayout {
         super.onDetachedFromWindow()
     }
 
-    private fun calculateValue(axis: Float, max: Int): Int {
-        val calculatedAxis = abs(axis).takeUnless { it < DEAD_ZONE }?.minus(DEAD_ZONE)?.div(1 - DEAD_ZONE) ?: 0F
-        return (calculatedAxis * sign(axis) * max).toInt()
+    private fun calculateValue(axis: Float, min: Int, max: Int): Int {
+        val axisAbs = abs(axis)
+        if (axisAbs < DEAD_ZONE) {
+            return 0
+        }
+
+        val maxBias = (axisAbs - DEAD_ZONE) / (1 - DEAD_ZONE)
+        val minBias = 1 - maxBias
+        return ((minBias * min + maxBias * max) * sign(axis)).toInt()
     }
 
     private fun setUpListeners() {
@@ -65,16 +73,16 @@ class VirtualStickView : LinearLayout {
         joystickLeft.setJoystickListener(object : OnScreenJoystickListener {
 
             override fun onTouch(joystick: OnScreenJoystick, pX: Float, pY: Float) {
-                pitch = calculateValue(pY, MAX_MOVEMENT)
-                roll = calculateValue(pX, MAX_MOVEMENT)
+                throttle = calculateValue(pY, MIN_MOVEMENT, MAX_MOVEMENT)
+                yaw = calculateValue(pX, MIN_ROTATION, MAX_ROTATION)
             }
         })
 
         joystickRight.setJoystickListener(object : OnScreenJoystickListener {
 
             override fun onTouch(joystick: OnScreenJoystick, pX: Float, pY: Float) {
-                throttle = calculateValue(pY, MAX_MOVEMENT)
-                yaw = calculateValue(pX, MAX_ROTATION)
+                pitch = calculateValue(pY, MIN_MOVEMENT, MAX_MOVEMENT)
+                roll = calculateValue(pX, MIN_MOVEMENT, MAX_MOVEMENT)
             }
         })
     }
