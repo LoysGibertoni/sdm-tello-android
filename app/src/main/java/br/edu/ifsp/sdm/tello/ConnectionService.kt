@@ -8,7 +8,7 @@ import android.util.Log
 import io.reactivex.Completable
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.Disposable
+import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -16,38 +16,36 @@ import java.net.DatagramSocket
 class ConnectionService : Service() {
 
     companion object {
-        val BUFFER_SIZE = 1518
+        private const val BUFFER_SIZE = 1518
     }
 
-    private var mSocket: DatagramSocket? = null
-    private var mDisposable: Disposable? = null
-    private var mOnMessageReceiveListener: ((String) -> Unit)? = null
-    private var mOnErrorListener: ((Throwable) -> Unit)? = null
+    private val socket: DatagramSocket = DatagramSocket(Constants.PORT)
+    private val compositeDisposable = CompositeDisposable()
+    private var onMessageReceiveListener: ((String) -> Unit)? = null
+    private var onErrorListener: ((Throwable) -> Unit)? = null
 
     override fun onCreate() {
         super.onCreate()
-        mSocket = DatagramSocket(Constants.PORT)
+        startServer()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        mDisposable?.takeIf { !it.isDisposed }?.dispose()
-        mDisposable = null
-        mSocket?.close()
-        mSocket = null
+        compositeDisposable.clear()
+        socket.close()
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
+    override fun onBind(intent: Intent?): IBinder {
         return Tello()
     }
 
     private fun startServer() {
-        mDisposable = Observable.create<String> {
+        Observable.create<String> {
                 try {
                     val buffer = ByteArray(BUFFER_SIZE)
                     val packet = DatagramPacket(buffer, buffer.size)
                     while (true) {
-                        mSocket?.receive(packet)
+                        socket.receive(packet)
                         it.onNext(String(buffer, 0, packet.length))
                     }
                 } catch (e: Exception) {
@@ -55,27 +53,35 @@ class ConnectionService : Service() {
                 }
             }.subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(mOnMessageReceiveListener, {
-                mOnErrorListener?.invoke(it)
-                mDisposable = null
-            })
+            .doOnNext(this::onMessageReceived)
+            .doOnError(this::onError)
+            .subscribe()
+            .also { compositeDisposable.add(it) }
     }
 
     private fun sendMessage(message: String) {
-        if (mDisposable == null) {
-            this.startServer()
-        }
-        val disposable = Completable.fromAction {
-                mSocket?.send(DatagramPacket(message.toByteArray(), message.length, Constants.HOST, Constants.PORT))
+        Completable.fromAction {
+                socket.send(DatagramPacket(message.toByteArray(), message.length, Constants.HOST, Constants.PORT))
             }.subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe({
-                Log.d("ConnectionService", "Sent $message")
-            }, {
-                mOnErrorListener?.invoke(it)
-                mDisposable?.takeIf { !it.isDisposed }?.dispose()
-                mDisposable = null
-            })
+            .doOnComplete { onMessageSent(message) }
+            .doOnError(this::onError)
+            .subscribe()
+            .also { compositeDisposable.add(it) }
+    }
+
+    private fun onMessageReceived(message: String) {
+        Log.d(javaClass.simpleName, "Received: $message")
+        onMessageReceiveListener?.invoke(message)
+    }
+
+    private fun onMessageSent(message: String) {
+        Log.d(javaClass.simpleName, "Sent: $message")
+    }
+
+    private fun onError(error: Throwable) {
+        Log.d(javaClass.simpleName, "Error: ${error.message}", error)
+        onErrorListener?.invoke(error)
     }
 
     inner class Tello : Binder() {
@@ -125,11 +131,11 @@ class ConnectionService : Service() {
         }
 
         fun setOnMessageReceiveListener(listener: ((String) -> Unit)?) {
-            mOnMessageReceiveListener = listener
+            onMessageReceiveListener = listener
         }
 
         fun setOnErrorListener(listener: ((Throwable) -> Unit)?) {
-            mOnErrorListener = listener
+            onErrorListener = listener
         }
     }
 }
