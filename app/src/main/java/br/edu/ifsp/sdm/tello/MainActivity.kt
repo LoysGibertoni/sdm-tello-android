@@ -12,7 +12,7 @@ class MainActivity : AppCompatActivity() {
         lifecycle.run {
             addObserver(commandSender)
             addObserver(StateReceiver())
-            //addObserver(VideoStreamReceiver())
+            addObserver(VideoStreamReceiver())
         }
     }
 

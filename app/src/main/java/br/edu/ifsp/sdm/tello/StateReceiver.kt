@@ -10,16 +10,14 @@ import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import java.net.DatagramPacket
 import java.net.DatagramSocket
-import java.net.InetSocketAddress
 
 class StateReceiver : LifecycleObserver {
 
-    private val socket = DatagramSocket()
+    private val socket = DatagramSocket(PORT)
     private val compositeDisposable = CompositeDisposable()
 
     @OnLifecycleEvent(Lifecycle.Event.ON_START)
     private fun onStart() {
-        socket.bind(InetSocketAddress("0.0.0.0", 8890))
         Observable.create<String> {
             try {
                 val buffer = ByteArray(BUFFER_SIZE)
@@ -51,6 +49,7 @@ class StateReceiver : LifecycleObserver {
     }
 
     companion object {
+        private const val PORT = 8890
         private const val BUFFER_SIZE = 1518
     }
 }

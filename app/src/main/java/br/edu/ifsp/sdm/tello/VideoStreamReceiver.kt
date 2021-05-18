@@ -10,11 +10,10 @@ import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import java.net.DatagramPacket
 import java.net.DatagramSocket
-import java.net.InetSocketAddress
 
 class VideoStreamReceiver : LifecycleObserver {
 
-    private val socket = DatagramSocket(ADDRESS)
+    private val socket = DatagramSocket(PORT)
     private val compositeDisposable = CompositeDisposable()
 
     @OnLifecycleEvent(Lifecycle.Event.ON_START)
@@ -50,7 +49,7 @@ class VideoStreamReceiver : LifecycleObserver {
     }
 
     companion object {
-        private val ADDRESS = InetSocketAddress("0.0.0.0", 11111)
+        private const val PORT = 11111
         private const val BUFFER_SIZE = 1518
     }
 }
