@@ -1,20 +1,14 @@
 package br.edu.ifsp.sdm.tello
 
+import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), VideoStreamReceiver.OnReceiveListener {
 
-    private val commandSender = CommandSender()
-
-    init {
-        lifecycle.run {
-            addObserver(commandSender)
-            addObserver(StateReceiver())
-            addObserver(VideoStreamReceiver())
-        }
-    }
+    private lateinit var commandSender: CommandSender
+    private lateinit var videoStreamReceiver: VideoStreamReceiver
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,5 +34,14 @@ class MainActivity : AppCompatActivity() {
         btLand.setOnClickListener {
             commandSender.land()
         }
+
+        commandSender = CommandSender().also {
+            lifecycle.addObserver(it)
+        }
+        videoStreamReceiver = VideoStreamReceiver(cacheDir, this).also {
+            lifecycle.addObserver(it)
+        }
     }
+
+    override fun onFrameReceived(bitmap: Bitmap) = ivImage.setImageBitmap(bitmap)
 }

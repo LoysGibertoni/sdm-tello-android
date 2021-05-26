@@ -13,13 +13,43 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 
-class CommandSender : LifecycleObserver {
+class CommandSender(
+    //private val onConnectionChangeListener: OnConnectionChangeListener
+) : LifecycleObserver {
 
-    private val socket = DatagramSocket(9000)
+    private val socket = DatagramSocket(PORT)
     private val compositeDisposable = CompositeDisposable()
+
+    /*var connected = false
+        set(value) {
+            if (field != value) {
+                when (value) {
+                    true -> onConnectionChangeListener.onConnected()
+                    false -> onConnectionChangeListener.onDisconnected()
+                }
+            }
+            field = value
+        }*/
 
     @OnLifecycleEvent(Lifecycle.Event.ON_START)
     private fun onStart() {
+        receiveResponses()
+        startHeartbeat()
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
+    private fun onStop() {
+        compositeDisposable.clear()
+    }
+
+    private fun startHeartbeat() {
+        /*Observable.interval(1, TimeUnit.SECONDS)
+            .subscribeOn(Schedulers.computation())
+            .subscribe { command() }*/
+
+    }
+
+    private fun receiveResponses() {
         Observable.create<String> {
             val buffer = ByteArray(BUFFER_SIZE)
             val packet = DatagramPacket(buffer, buffer.size)
@@ -28,14 +58,9 @@ class CommandSender : LifecycleObserver {
                 it.onNext(String(buffer, 0, packet.length))
             }
         }.subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(this::onMessageReceived, this::onError)
-                .also { compositeDisposable.add(it) }
-    }
-
-    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
-    private fun onStop() {
-        compositeDisposable.clear()
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(this::onMessageReceived, this::onError)
+            .also { compositeDisposable.add(it) }
     }
 
     fun command() {
@@ -44,6 +69,10 @@ class CommandSender : LifecycleObserver {
 
     fun streamon() {
         send("streamon")
+    }
+
+    fun streamoff() {
+        send("streamoff")
     }
 
     fun takeOff() {
@@ -105,6 +134,11 @@ class CommandSender : LifecycleObserver {
 
     private fun onError(error: Throwable) {
         Log.d(javaClass.simpleName, "Error: ${error.message}", error)
+    }
+
+    interface OnConnectionChangeListener {
+        fun onConnected()
+        fun onDisconnected()
     }
 
     companion object {

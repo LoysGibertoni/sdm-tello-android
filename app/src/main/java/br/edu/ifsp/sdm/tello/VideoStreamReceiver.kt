@@ -1,55 +1,79 @@
 package br.edu.ifsp.sdm.tello
 
+import android.annotation.SuppressLint
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.os.FileObserver
 import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.OnLifecycleEvent
-import io.reactivex.Observable
+import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.FFmpegSession
+import com.arthenica.ffmpegkit.ReturnCode
+import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
-import java.net.DatagramPacket
-import java.net.DatagramSocket
+import java.io.File
 
-class VideoStreamReceiver : LifecycleObserver {
+@SuppressLint("NewApi")
+class VideoStreamReceiver(
+    private val directory: File,
+    private val listener: OnReceiveListener
+) : FileObserver(directory, CLOSE_WRITE), LifecycleObserver {
 
-    private val socket = DatagramSocket(PORT)
+    private var fFmpegSession: FFmpegSession? = null
     private val compositeDisposable = CompositeDisposable()
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
+    private fun onCreate() {
+        startWatching()
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+    private fun onDestroy() {
+        stopWatching()
+    }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_START)
     private fun onStart() {
-        Observable.create<String> {
-            try {
-                val buffer = ByteArray(BUFFER_SIZE)
-                val packet = DatagramPacket(buffer, buffer.size)
-                while (true) {
-                    socket.receive(packet)
-                    it.onNext(String(buffer, 0, packet.length))
-                }
-            } catch (e: Exception) {
-                it.tryOnError(e)
+        val file = directory.resolve(FILE).apply { createNewFile() }
+        fFmpegSession?.cancel()
+        fFmpegSession = null
+        fFmpegSession = FFmpegKit.executeAsync("-y -i udp://127.0.0.1:11111 -vf fps=$PREVIEW_FPS -update 1 ${file.absolutePath}") {
+            when {
+                ReturnCode.isSuccess(it.returnCode) -> Log.d("fFmpegSession", "Command successful")
+                ReturnCode.isCancel(it.returnCode) -> Log.d("fFmpegSession", "Command cancelled")
+                else -> Log.d("fFmpegSession", "Command failed with state ${it.state} and rc ${it.returnCode}.${it.failStackTrace}")
             }
-        }.subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(this::onReceive, this::onError)
-                .also { compositeDisposable.add(it) }
+        }
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
     private fun onStop() {
+        fFmpegSession?.cancel()
+        fFmpegSession = null
         compositeDisposable.clear()
     }
 
-    private fun onReceive(message: String) {
-        Log.d(javaClass.simpleName, "Received: $message")
+    override fun onEvent(event: Int, path: String?) {
+        path?.let {
+            Single.fromCallable { directory.resolve(it).readBytes() }
+                .map { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                .subscribeOn(Schedulers.computation())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(listener::onFrameReceived) { Log.e(javaClass.simpleName, "Error updating ImageView", it) }
+                .also { compositeDisposable.add(it) }
+        }
     }
 
-    private fun onError(error: Throwable) {
-        Log.d(javaClass.simpleName, "Error: ${error.message}", error)
+    fun interface OnReceiveListener {
+        fun onFrameReceived(bitmap: Bitmap)
     }
 
     companion object {
-        private const val PORT = 11111
-        private const val BUFFER_SIZE = 1518
+        private const val PREVIEW_FPS = 15
+        private const val FILE = "frame.bmp"
     }
 }
