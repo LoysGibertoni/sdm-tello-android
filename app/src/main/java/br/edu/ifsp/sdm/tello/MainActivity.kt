@@ -26,19 +26,19 @@ class MainActivity : AppCompatActivity(), VideoStreamReceiver.OnReceiveListener 
         }
 
         btConnect.setOnClickListener {
-            commandSender.command()
+            //commandSender.command()
         }
         btTakeOff.setOnClickListener {
-            commandSender.streamon()
+            //commandSender.streamon()
         }
         btLand.setOnClickListener {
-            commandSender.land()
+            //commandSender.land()
         }
 
         commandSender = CommandSender().also {
             lifecycle.addObserver(it)
         }
-        videoStreamReceiver = VideoStreamReceiver(cacheDir, this).also {
+        videoStreamReceiver = VideoStreamReceiver(commandSender, cacheDir, this).also {
             lifecycle.addObserver(it)
         }
     }

@@ -19,6 +19,7 @@ import java.io.File
 
 @SuppressLint("NewApi")
 class VideoStreamReceiver(
+    private val commandSender: CommandSender,
     private val directory: File,
     private val listener: OnReceiveListener
 ) : FileObserver(directory, CLOSE_WRITE), LifecycleObserver {
@@ -38,10 +39,22 @@ class VideoStreamReceiver(
 
     @OnLifecycleEvent(Lifecycle.Event.ON_START)
     private fun onStart() {
+        commandSender.streamon(CommandSender.OnCommandSuccessListener {
+            startFFmpeg()
+        })
+    }
+
+    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
+    private fun onStop() {
+        commandSender.streamoff(CommandSender.OnCommandSuccessListener {
+            stopFFmpeg()
+        })
+        compositeDisposable.clear()
+    }
+
+    private fun startFFmpeg() {
         val file = directory.resolve(FILE).apply { createNewFile() }
-        fFmpegSession?.cancel()
-        fFmpegSession = null
-        fFmpegSession = FFmpegKit.executeAsync("-y -i udp://127.0.0.1:11111 -vf fps=$PREVIEW_FPS -update 1 ${file.absolutePath}") {
+        fFmpegSession = FFmpegKit.executeAsync("-y -i udp://127.0.0.1:11111?reuse=1 -vf fps=$PREVIEW_FPS -update 1 ${file.absolutePath}") {
             when {
                 ReturnCode.isSuccess(it.returnCode) -> Log.d("fFmpegSession", "Command successful")
                 ReturnCode.isCancel(it.returnCode) -> Log.d("fFmpegSession", "Command cancelled")
@@ -50,11 +63,10 @@ class VideoStreamReceiver(
         }
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
-    private fun onStop() {
+    private fun stopFFmpeg() {
         fFmpegSession?.cancel()
         fFmpegSession = null
-        compositeDisposable.clear()
+        FFmpegKit.cancel()
     }
 
     override fun onEvent(event: Int, path: String?) {

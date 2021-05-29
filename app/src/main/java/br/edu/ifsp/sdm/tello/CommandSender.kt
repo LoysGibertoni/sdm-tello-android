@@ -12,41 +12,30 @@ import io.reactivex.schedulers.Schedulers
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.util.concurrent.TimeUnit
 
-class CommandSender(
-    //private val onConnectionChangeListener: OnConnectionChangeListener
-) : LifecycleObserver {
+class CommandSender : LifecycleObserver {
 
     private val socket = DatagramSocket(PORT)
     private val compositeDisposable = CompositeDisposable()
+    private var onCommandResponseListener: OnCommandResponseListener? = null
 
-    /*var connected = false
-        set(value) {
-            if (field != value) {
-                when (value) {
-                    true -> onConnectionChangeListener.onConnected()
-                    false -> onConnectionChangeListener.onDisconnected()
-                }
-            }
-            field = value
-        }*/
-
-    @OnLifecycleEvent(Lifecycle.Event.ON_START)
-    private fun onStart() {
+    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
+    private fun onCreate() {
         receiveResponses()
         startHeartbeat()
     }
 
-    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
-    private fun onStop() {
+    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+    private fun onDestroy() {
         compositeDisposable.clear()
     }
 
     private fun startHeartbeat() {
-        /*Observable.interval(1, TimeUnit.SECONDS)
+        Observable.interval(5, TimeUnit.SECONDS)
             .subscribeOn(Schedulers.computation())
-            .subscribe { command() }*/
-
+            .subscribe { command() }
+            .also { compositeDisposable.add(it) }
     }
 
     private fun receiveResponses() {
@@ -63,16 +52,16 @@ class CommandSender(
             .also { compositeDisposable.add(it) }
     }
 
-    fun command() {
+    private fun command() {
         send("command")
     }
 
-    fun streamon() {
-        send("streamon")
+    fun streamon(listener: OnCommandResponseListener? = null) {
+        send("streamon", listener)
     }
 
-    fun streamoff() {
-        send("streamoff")
+    fun streamoff(listener: OnCommandResponseListener? = null) {
+        send("streamoff", listener)
     }
 
     fun takeOff() {
@@ -115,17 +104,31 @@ class CommandSender(
         send("cw $degrees")
     }
 
-    private fun send(command: String) {
+    private fun send(command: String, listener: OnCommandResponseListener? = null) {
+        onCommandResponseListener = listener
         Completable.fromAction {
             socket.send(DatagramPacket(command.toByteArray(), command.length, HOST, PORT))
-        }.subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({ onMessageSent(command) }, this::onError)
-                .also { compositeDisposable.add(it) }
+        }.doOnComplete { onMessageSent(command) }
+            .andThen(Completable.timer(500, TimeUnit.MILLISECONDS))
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+                onCommandResponseListener?.onFailure("Timeout")
+                onCommandResponseListener = null
+            }, this::onError)
+            .also { compositeDisposable.add(it) }
     }
 
     private fun onMessageReceived(message: String) {
         Log.d(javaClass.simpleName, "Received: $message")
+        onCommandResponseListener?.let {
+            if (message.equals("ok", true)) {
+                it.onSuccess()
+            } else {
+                it.onFailure(message)
+            }
+            onCommandResponseListener = null
+        }
     }
 
     private fun onMessageSent(message: String) {
@@ -136,9 +139,13 @@ class CommandSender(
         Log.d(javaClass.simpleName, "Error: ${error.message}", error)
     }
 
-    interface OnConnectionChangeListener {
-        fun onConnected()
-        fun onDisconnected()
+    interface OnCommandResponseListener {
+        fun onSuccess()
+        fun onFailure(message: String)
+    }
+
+    fun interface OnCommandSuccessListener : OnCommandResponseListener {
+        override fun onFailure(message: String) = Unit
     }
 
     companion object {
