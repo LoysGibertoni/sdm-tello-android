@@ -21,13 +21,13 @@ class CommandSender : LifecycleObserver {
     private var onCommandResponseListener: OnCommandResponseListener? = null
 
     @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
-    private fun onCreate() {
+    fun onCreate() {
         receiveResponses()
         startHeartbeat()
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-    private fun onDestroy() {
+    fun onDestroy() {
         compositeDisposable.clear()
     }
 

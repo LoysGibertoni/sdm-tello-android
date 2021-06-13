@@ -28,24 +28,24 @@ class VideoStreamReceiver(
     private val compositeDisposable = CompositeDisposable()
 
     @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
-    private fun onCreate() {
+    fun onCreate() {
         startWatching()
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-    private fun onDestroy() {
+    fun onDestroy() {
         stopWatching()
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_START)
-    private fun onStart() {
+    fun onStart() {
         commandSender.streamon(CommandSender.OnCommandSuccessListener {
             startFFmpeg()
         })
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
-    private fun onStop() {
+    fun onStop() {
         commandSender.streamoff(CommandSender.OnCommandSuccessListener {
             stopFFmpeg()
         })
