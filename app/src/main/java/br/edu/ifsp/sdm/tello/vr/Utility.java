@@ -1,8 +1,6 @@
 package br.edu.ifsp.sdm.tello.vr;
 
-import android.graphics.Bitmap;
 import android.opengl.GLES20;
-import android.opengl.GLUtils;
 import android.util.Log;
 
 import java.io.BufferedReader;
@@ -44,31 +42,5 @@ public class Utility {
             e.printStackTrace();
         }
         return null;
-    }
-
-    public  static int[] loadTextures(Bitmap... bitmaps) {
-        final int[] textureHandle = new int[bitmaps.length];
-
-        GLES20.glGenTextures(bitmaps.length, textureHandle, 0);
-
-        for (int i = 0; i < bitmaps.length; i++) {
-            if (textureHandle[i] != 0) {
-                // Bind to the texture in OpenGL
-                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureHandle[i]);
-
-                // Set filtering
-                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
-                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
-
-                // Load the bitmap into the bound texture.
-                GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmaps[i], 0);
-            }
-
-            if (textureHandle[i] == 0) {
-                throw new RuntimeException("Error loading texture.");
-            }
-        }
-
-        return textureHandle;
     }
 }

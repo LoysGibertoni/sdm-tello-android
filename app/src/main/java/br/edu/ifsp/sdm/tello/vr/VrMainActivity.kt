@@ -5,13 +5,18 @@ import android.opengl.GLES20
 import android.opengl.Matrix
 import android.os.Bundle
 import android.util.Log
+import android.view.InputDevice
+import android.view.MotionEvent
 import br.edu.ifsp.sdm.tello.CommandSender
 import br.edu.ifsp.sdm.tello.R
 import br.edu.ifsp.sdm.tello.VideoStreamReceiver
+import br.edu.ifsp.sdm.tello.VirtualStickView
 import com.google.vr.sdk.base.*
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.activity_vr_main.*
 import javax.microedition.khronos.egl.EGLConfig
+import kotlin.math.absoluteValue
+import kotlin.math.sign
 
 class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceiver.OnReceiveListener {
 
@@ -36,17 +41,6 @@ class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceive
     private lateinit var imageLeft: OpenGLGeometryHelper
     private lateinit var imageRight: OpenGLGeometryHelper
     private var bitmap: Bitmap? = null
-    /*private val controllerManager: ControllerManager by lazy { ControllerManager(this, null) }
-    private val controller: Controller by lazy {
-        controllerManager.controller.apply {
-            setEventListener(object : Controller.EventListener() {
-                override fun onUpdate() {
-                    controller.update()
-                    onControllerUpdate()
-                }
-            })
-        }
-    }*/
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,22 +78,31 @@ class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceive
         super.onDestroy()
     }
 
-    /*private fun onControllerUpdate() {
-        val (yaw, pitch, roll) = controller.orientation.toYawPitchRollDegrees(FloatArray(3))
-        calculateRotation(yaw)?.let {
-            if (it > 0) {
-                commandSender.rotateRight(it)
-            } else {
-                commandSender.rotateLeft(-it)
+    override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+        if (event.source == InputDevice.SOURCE_JOYSTICK && event.action == MotionEvent.ACTION_MOVE) {
+            val pitch = -event.getAxis(MotionEvent.AXIS_Y)
+            val roll = event.getAxis(MotionEvent.AXIS_X)
+            val yaw = event.getAxis(MotionEvent.AXIS_Z)
+            val throttle = -event.getAxis(MotionEvent.AXIS_RZ)
+
+            pitch.toMovement().takeIf { it > 0 }?.let { this.commandSender.forward(it) }
+            pitch.toMovement().takeIf { it < 0 }?.let { this.commandSender.back(it.absoluteValue) }
+            roll.toMovement().takeIf { it > 0 }?.let { this.commandSender.right(it) }
+            roll.toMovement().takeIf { it < 0 }?.let { this.commandSender.left(it.absoluteValue) }
+            yaw.toRotation().takeIf { it > 0 }?.let { this.commandSender.rotateRight(it) }
+            yaw.toRotation().takeIf { it < 0 }?.let { this.commandSender.rotateLeft(it.absoluteValue) }
+            throttle.toMovement().takeIf { it > 0 }?.let { this.commandSender.up(it) }
+            throttle.toMovement().takeIf { it < 0 }?.let { this.commandSender.down(it.absoluteValue) }
+
+            when(event.getAxis(MotionEvent.AXIS_HAT_Y)) {
+                -1f -> commandSender.takeOff()
+                1f -> commandSender.land()
             }
+
+            return true
         }
-        pitch.takeIf { it > 0 }?.let { this.commandSender.forward(it) }
-        pitch.takeIf { it < 0 }?.let { this.commandSender.back(Math.abs(it)) }
-        roll.takeIf { it > 0 }?.let { this.commandSender.right(it) }
-        roll.takeIf { it < 0 }?.let { this.commandSender.left(Math.abs(it)) }
-        yaw.takeIf { it > 0 }?.let { this.commandSender.rotateRight(it) }
-        yaw.takeIf { it < 0 }?.let { this.commandSender.rotateLeft(Math.abs(it)) }
-    }*/
+        return super.onGenericMotionEvent(event)
+    }
 
     override fun onNewFrame(headTransform: HeadTransform) {
         Log.d(javaClass.simpleName, "onNewFrame: start")
@@ -224,3 +227,14 @@ class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceive
         this.bitmap = bitmap
     }
 }
+
+private fun MotionEvent.getAxis(axis: Int): Float {
+    val flat = device.getMotionRange(axis)?.flat ?: 0f
+    return getAxisValue(axis).takeIf { it.absoluteValue > flat } ?: 0f
+}
+
+private fun Float.toMovement(): Int =
+    (((1 - this.absoluteValue) * VirtualStickView.MIN_MOVEMENT + this.absoluteValue * VirtualStickView.MAX_MOVEMENT) * sign(this)).toInt()
+
+private fun Float.toRotation(): Int =
+    (((1 - this.absoluteValue) * VirtualStickView.MIN_ROTATION + this.absoluteValue * VirtualStickView.MAX_ROTATION) * sign(this)).toInt()
