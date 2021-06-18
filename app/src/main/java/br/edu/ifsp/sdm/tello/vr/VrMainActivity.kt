@@ -10,13 +10,11 @@ import android.view.MotionEvent
 import br.edu.ifsp.sdm.tello.CommandSender
 import br.edu.ifsp.sdm.tello.R
 import br.edu.ifsp.sdm.tello.VideoStreamReceiver
-import br.edu.ifsp.sdm.tello.VirtualStickView
 import com.google.vr.sdk.base.*
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.activity_vr_main.*
 import javax.microedition.khronos.egl.EGLConfig
 import kotlin.math.absoluteValue
-import kotlin.math.sign
 
 class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceiver.OnReceiveListener {
 
@@ -80,19 +78,17 @@ class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceive
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
         if (event.source == InputDevice.SOURCE_JOYSTICK && event.action == MotionEvent.ACTION_MOVE) {
-            val pitch = -event.getAxis(MotionEvent.AXIS_Y)
-            val roll = event.getAxis(MotionEvent.AXIS_X)
-            val yaw = event.getAxis(MotionEvent.AXIS_Z)
-            val throttle = -event.getAxis(MotionEvent.AXIS_RZ)
+            val roll = 100 * event.getAxis(MotionEvent.AXIS_X)
+            val pitch = -100 * event.getAxis(MotionEvent.AXIS_Y)
+            val throttle = -100 * event.getAxis(MotionEvent.AXIS_RZ)
+            val yaw = 100 * event.getAxis(MotionEvent.AXIS_Z)
 
-            pitch.toMovement().takeIf { it > 0 }?.let { this.commandSender.forward(it) }
-            pitch.toMovement().takeIf { it < 0 }?.let { this.commandSender.back(it.absoluteValue) }
-            roll.toMovement().takeIf { it > 0 }?.let { this.commandSender.right(it) }
-            roll.toMovement().takeIf { it < 0 }?.let { this.commandSender.left(it.absoluteValue) }
-            yaw.toRotation().takeIf { it > 0 }?.let { this.commandSender.rotateRight(it) }
-            yaw.toRotation().takeIf { it < 0 }?.let { this.commandSender.rotateLeft(it.absoluteValue) }
-            throttle.toMovement().takeIf { it > 0 }?.let { this.commandSender.up(it) }
-            throttle.toMovement().takeIf { it < 0 }?.let { this.commandSender.down(it.absoluteValue) }
+            commandSender.rc(
+                roll.toInt(),
+                pitch.toInt(),
+                throttle.toInt(),
+                yaw.toInt()
+            )
 
             when(event.getAxis(MotionEvent.AXIS_HAT_Y)) {
                 -1f -> commandSender.takeOff()
@@ -172,30 +168,6 @@ class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceive
         Log.d(javaClass.simpleName, "onRendererShutdown")
     }
 
-    /*companion object {
-        private const val MIN_MOVEMENT = 20
-        private const val MAX_MOVEMENT = 50
-        private const val MIN_ROTATION = 1
-        private const val MAX_ROTATION = 36
-        private const val DEAD_ZONE = 0.2F
-        const val MAX_DEGREES = 360F
-
-        private fun calculateValue(axis: Float, min: Int, max: Int): Int? {
-            val axisAbs = abs(axis)
-            if (axisAbs < DEAD_ZONE) {
-                return null
-            }
-
-            val maxBias = (axisAbs - DEAD_ZONE) / (1 - DEAD_ZONE)
-            val minBias = 1 - maxBias
-            return ((minBias * min + maxBias * max) * sign(axis)).toInt()
-        }
-
-        fun calculateMovement(axis: Float) = calculateValue(axis, MIN_MOVEMENT, MAX_MOVEMENT)
-
-        fun calculateRotation(axis: Float) = calculateValue(axis, MIN_ROTATION, MAX_ROTATION)
-    }*/
-
     fun loadGLShader(type: Int, resId: Int): Int {
         val code = Utility.readRawTextFile(resources.openRawResource(resId))
         var shader = GLES20.glCreateShader(type)
@@ -232,9 +204,3 @@ private fun MotionEvent.getAxis(axis: Int): Float {
     val flat = device.getMotionRange(axis)?.flat ?: 0f
     return getAxisValue(axis).takeIf { it.absoluteValue > flat } ?: 0f
 }
-
-private fun Float.toMovement(): Int =
-    (((1 - this.absoluteValue) * VirtualStickView.MIN_MOVEMENT + this.absoluteValue * VirtualStickView.MAX_MOVEMENT) * sign(this)).toInt()
-
-private fun Float.toRotation(): Int =
-    (((1 - this.absoluteValue) * VirtualStickView.MIN_ROTATION + this.absoluteValue * VirtualStickView.MAX_ROTATION) * sign(this)).toInt()

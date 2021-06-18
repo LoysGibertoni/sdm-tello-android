@@ -104,6 +104,10 @@ class CommandSender : LifecycleObserver {
         send("cw $degrees")
     }
 
+    fun rc(roll: Int, pitch: Int, throttle: Int, yaw: Int) {
+        send("rc $roll $pitch $throttle $yaw")
+    }
+
     private fun send(command: String, listener: OnCommandResponseListener? = null) {
         onCommandResponseListener = listener
         Completable.fromAction {
