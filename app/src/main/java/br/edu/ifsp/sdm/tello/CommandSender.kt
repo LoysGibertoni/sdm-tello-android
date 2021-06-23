@@ -23,19 +23,11 @@ class CommandSender : LifecycleObserver {
     @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
     fun onCreate() {
         receiveResponses()
-        startHeartbeat()
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
     fun onDestroy() {
         compositeDisposable.clear()
-    }
-
-    private fun startHeartbeat() {
-        Observable.interval(5, TimeUnit.SECONDS)
-            .subscribeOn(Schedulers.computation())
-            .subscribe { command() }
-            .also { compositeDisposable.add(it) }
     }
 
     private fun receiveResponses() {
@@ -52,8 +44,8 @@ class CommandSender : LifecycleObserver {
             .also { compositeDisposable.add(it) }
     }
 
-    private fun command() {
-        send("command")
+    fun command(listener: OnCommandResponseListener? = null) {
+        send("command", listener)
     }
 
     fun streamon(listener: OnCommandResponseListener? = null) {

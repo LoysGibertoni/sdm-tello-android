@@ -26,9 +26,8 @@ class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceive
         FloatArray(16).apply {
             //Set the size and placement of the virtual screen.
             Matrix.setIdentityM(this, 0)
-            val screenSize = resources.displayMetrics.density //Virtual screen height in meters.
-            val aspectRatio =
-                resources.displayMetrics.widthPixels / resources.displayMetrics.heightPixels //Image will be stretched to this ratio.
+            val screenSize = resources.displayMetrics.density * 1.5f //Virtual screen height in meters.
+            val aspectRatio = 960f / 720f //Image will be stretched to this ratio.
             Matrix.scaleM(this, 0, screenSize, screenSize / aspectRatio, 1f)
             Matrix.translateM(this, 0, 0.0f, 0.0f, -4f)
         }
@@ -36,8 +35,6 @@ class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceive
     private var textureVertexShader: Int = 0
     private var textureFragmentShader: Int = 0
     private lateinit var imageFull: OpenGLGeometryHelper
-    private lateinit var imageLeft: OpenGLGeometryHelper
-    private lateinit var imageRight: OpenGLGeometryHelper
     private var bitmap: Bitmap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,8 +102,6 @@ class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceive
 
         bitmap?.let {
             imageFull.setBitmap(it)
-            imageLeft.setBitmap(it)
-            imageRight.setBitmap(it)
             bitmap = null
         }
 
@@ -130,11 +125,7 @@ class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceive
         val zFar = 100f
         val perspective = eye.getPerspective(zNear, zFar)
 
-        when (eye.type) {
-            1 -> imageRight
-            2 -> imageLeft
-            else -> imageFull
-        }.draw(camera, perspective)
+        imageFull.draw(camera, perspective)
 
         Log.d(javaClass.simpleName, "onDrawEye: end")
     }
@@ -156,8 +147,6 @@ class VrMainActivity : GvrActivity(), GvrView.StereoRenderer, VideoStreamReceive
         textureFragmentShader = loadGLShader(GLES20.GL_FRAGMENT_SHADER, R.raw.texture_fragment)
 
         imageFull = OpenGLGeometryHelper(WorldData.SQUARE_COORDS, viewMatrix, textureVertexShader, textureFragmentShader, WorldData.SQUARE_TEXTURE_COORDS)
-        imageLeft = OpenGLGeometryHelper(WorldData.SQUARE_COORDS, viewMatrix, textureVertexShader, textureFragmentShader, WorldData.SQUARE_TEXTURE_COORDS_LEFT)
-        imageRight = OpenGLGeometryHelper(WorldData.SQUARE_COORDS, viewMatrix, textureVertexShader, textureFragmentShader, WorldData.SQUARE_TEXTURE_COORDS_RIGHT)
 
         Utility.checkGLError(javaClass.simpleName, "onSurfaceCreated")
 
